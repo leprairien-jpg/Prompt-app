@@ -12,8 +12,8 @@ api_key = st.sidebar.text_input("Entrez votre clé API Google", type="password")
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # On utilise 'models/gemini-1.5-flash' qui est le nom complet et stable
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
+        # Utilisation du modèle 'gemini-1.5-flash-latest' pour éviter les erreurs 404
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
         user_input = st.text_area("Quelle est votre demande de base ?", placeholder="Ex: Aide moi à vendre un vélo")
 
@@ -26,32 +26,31 @@ if api_key:
                 score = 0
                 iteration = 1
                 
-                # Boucle d'autocritique
+                # Boucle d'autocritique (max 3 itérations pour la rapidité)
                 while score < 5 and iteration <= 3:
                     status_text.info(f"🔄 Itération {iteration} : Analyse et critique en cours...")
                     
                     instruction = f"""
-                    Tu es un expert en Prompt Engineering. 
-                    Demande actuelle à optimiser : {current_prompt}
+                    Tu es un expert en Prompt Engineering d'élite.
+                    Demande actuelle : {current_prompt}
                     
                     Tâche :
-                    1. Analyse si le prompt contient un rôle, un contexte, une tâche précise et un format de sortie.
-                    2. Rédige une version nettement améliorée.
-                    3. Attribue une note de 1 à 5 (5 étant parfait).
+                    1. Analyse ce prompt : est-il clair ? a-t-il un rôle ? un contexte ? des contraintes ?
+                    2. Réécris une version largement supérieure.
+                    3. Donne une note de 1 à 5 sur la qualité de ta réécriture.
                     
-                    Format de réponse STRICT :
+                    Format de réponse STRICT (ne réponds rien d'autre) :
                     NOTE: [Chiffre]
-                    PROMPT: [Ton prompt optimisé]
+                    PROMPT: [Ton prompt optimisé ici]
                     """
                     
                     try:
                         response = model.generate_content(instruction)
                         output = response.text
                         
-                        # Extraction sécurisée de la note
+                        # Extraction de la note
                         if "NOTE:" in output:
                             score_part = output.split("NOTE:")[1].split("\n")[0].strip()
-                            # On ne garde que le premier chiffre au cas où
                             score = int(''.join(filter(str.isdigit, score_part)) or 0)
                         
                         # Extraction du prompt
@@ -63,14 +62,14 @@ if api_key:
                         st.error(f"Erreur lors de la génération : {e}")
                         break
                 
-                status_text.success("✅ Optimisation terminée !")
-                st.subheader("🏆 Votre Prompt 5 Étoiles :")
-                st.info("Copiez le texte ci-dessous pour l'utiliser dans votre IA habituelle.")
+                status_text.success("✅ Prompt 5 étoiles atteint !")
+                st.subheader("🏆 Votre Prompt Optimisé :")
+                st.info("Copiez le texte ci-dessous :")
                 st.code(current_prompt, language="markdown")
                 
     except Exception as e:
         st.error(f"Erreur de configuration : {e}")
 
 else:
-    st.warning("👈 Veuillez entrer votre clé API dans la barre latérale pour commencer.")
-    st.info("Vous n'avez pas de clé ? Obtenez-en une gratuitement sur https://aistudio.google.com/")
+    st.warning("👈 Entrez votre clé API dans la barre latérale.")
+    st.info("Obtenez-la ici : https://aistudio.google.com/")
