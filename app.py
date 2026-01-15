@@ -29,16 +29,13 @@ for i, item in enumerate(st.session_state.history):
         st.session_state.display_prompt = item['content']
 
 # 4. API & Modèle
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-else:
-    api_key = st.sidebar.text_input("Clé API Google", type="password")
+api_key = st.secrets.get("GEMINI_API_KEY") or st.sidebar.text_input("Clé API Google", type="password")
 
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # Utilisation du nom de modèle le plus stable pour éviter la 404
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
+        # CHANGEMENT ICI : On utilise le nom court qui résout l'erreur 404 sur Streamlit Cloud
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
         user_input = st.text_area("Quelle est votre demande de base ?", placeholder="Ex: Aide moi à vendre un vélo")
 
@@ -79,14 +76,14 @@ if api_key:
                     
                     iteration += 1
                 
-                # Sauvegarde auto dans l'historique
+                # Sauvegarde auto
                 st.session_state.history.append({"name": user_input[:20]+"...", "content": current_prompt})
                 save_data(st.session_state.history)
                 
                 status_text.success("✅ Terminé !")
                 st.session_state.display_prompt = current_prompt
 
-        # Affichage du résultat
+        # Affichage
         if "display_prompt" in st.session_state:
             st.subheader("🏆 Votre Prompt 5 Étoiles :")
             st.code(st.session_state.display_prompt, language="markdown")
