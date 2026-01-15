@@ -1,94 +1,100 @@
 import streamlit as st
 import google.generativeai as genai
-import json
-import os
 
-# 1. Page
-st.set_page_config(page_title="Prompt Master 5*", page_icon="⭐")
+# Configuration de l'interface
+st.set_page_config(page_title="Prompt Master 5*", page_icon="⭐", layout="centered")
+
 st.title("🚀 Prompt Optimizer 5-Stars")
+st.markdown("---")
 
-# 2. Sauvegarde (Fichier JSON)
-SAVE_FILE = "prompts_db.json"
-def load_data():
-    if os.path.exists(SAVE_FILE):
-        try:
-            with open(SAVE_FILE, "r") as f: return json.load(f)
-        except: return []
-    return []
-
-def save_data(data):
-    with open(SAVE_FILE, "w") as f: json.dump(data, f)
-
-if "history" not in st.session_state:
-    st.session_state.history = load_data()
-
-# 3. Barre latérale (Historique)
-st.sidebar.header("🗂️ Historique")
-for i, item in enumerate(st.session_state.history):
-    if st.sidebar.button(f"📄 {item['name']}", key=f"h_{i}"):
-        st.session_state.display_prompt = item['content']
-
-# 4. API & Modèle
-api_key = st.secrets.get("GEMINI_API_KEY") or st.sidebar.text_input("Clé API Google", type="password")
+# --- GESTION DE LA CLÉ API ---
+# Tente de lire la clé depuis les Secrets Streamlit, sinon demande une saisie manuelle
+if "GEMINI_API_KEY" in st.secrets:
+    api_key = st.secrets["GEMINI_API_KEY"]
+else:
+    api_key = st.sidebar.text_input("🔑 Clé API Google non détectée, entrez-la ici :", type="password")
+    st.sidebar.info("Pour ne plus avoir à saisir la clé, ajoutez GEMINI_API_KEY dans les Secrets de Streamlit Cloud.")
 
 if api_key:
     try:
         genai.configure(api_key=api_key)
-        # CHANGEMENT ICI : On utilise le nom court qui résout l'erreur 404 sur Streamlit Cloud
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Détection automatique du meilleur modèle disponible
+        @st.cache_resource
+        def get_working_model():
+            try:
+                models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                # On cherche gemini-1.5-flash en priorité
+                for m in models:
+                    if 'gemini-1.5-flash' in m:
+                        return m
+                return models[0] if models else None
+            except:
+                return "gemini-1.5-flash" # Repli par défaut
 
-        user_input = st.text_area("Quelle est votre demande de base ?", placeholder="Ex: Aide moi à vendre un vélo")
+        model_id = get_working_model()
+        model = genai.GenerativeModel(model_id)
 
-        if st.button("Générer le Prompt Parfait"):
+        # Zone de saisie utilisateur
+        user_input = st.text_area("✍️ Quelle est votre demande de base ?", 
+                                  placeholder="Ex: Écris un script de vidéo YouTube sur les chats...",
+                                  height=150)
+
+        if st.button("✨ Générer le Prompt 5 Étoiles"):
             if not user_input:
-                st.error("Veuillez entrer une demande !")
+                st.warning("Veuillez saisir une demande avant de lancer l'optimisation.")
             else:
-                status_text = st.empty()
                 current_prompt = user_input
                 score = 0
                 iteration = 1
+                container = st.container()
                 
+                # Boucle d'autocritique (limite à 3 pour la rapidité)
                 while score < 5 and iteration <= 3:
-                    status_text.info(f"🔄 Itération {iteration} : Analyse et critique en cours...")
+                    with st.status(f"🔄 Optimisation - Itération {iteration}...", expanded=True) as status:
+                        
+                        instruction = f"""
+                        Tu es un expert mondial en Prompt Engineering. Ton but est de transformer une demande simple en un prompt complexe et parfait.
+                        
+                        DEMANDE ACTUELLE : {current_prompt}
+                        
+                        TACHE :
+                        1. Analyse le prompt : manque-t-il un rôle, un contexte, des étapes ou un format de sortie ?
+                        2. Réécris une version largement améliorée, ultra-précise et professionnelle.
+                        3. Attribue une note de 1 à 5 à ta nouvelle version (5 étant parfait).
+                        
+                        FORMAT DE RÉPONSE STRICT (NE RÉPONDS RIEN D'AUTRE) :
+                        NOTE: [Chiffre entre 1 et 5]
+                        PROMPT: [Ton prompt optimisé ici]
+                        """
+                        
+                        try:
+                            response = model.generate_content(instruction)
+                            output = response.text
+                            
+                            # Extraction de la note
+                            if "NOTE:" in output:
+                                score_str = output.split("NOTE:")[1].split("\n")[0].strip()
+                                score = int(''.join(filter(str.isdigit, score_str)) or 0)
+                            
+                            # Extraction du prompt
+                            if "PROMPT:" in output:
+                                current_prompt = output.split("PROMPT:")[1].strip()
+                            
+                            st.write(f"Note obtenue : {score}/5")
+                            iteration += 1
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+                            break
                     
-                    instruction = f"""
-                    Tu es un expert en Prompt Engineering. 
-                    Demande actuelle : {current_prompt}
-                    
-                    Tâche :
-                    1. Améliore ce prompt pour qu'il soit parfait.
-                    2. Donne une note de 1 à 5.
-                    
-                    Format STRICT :
-                    NOTE: [Chiffre]
-                    PROMPT: [Ton prompt optimisé]
-                    """
-                    
-                    response = model.generate_content(instruction)
-                    output = response.text
-                    
-                    if "NOTE:" in output:
-                        score_part = output.split("NOTE:")[1].split("\n")[0].strip()
-                        score = int(''.join(filter(str.isdigit, score_part)) or 0)
-                    
-                    if "PROMPT:" in output:
-                        current_prompt = output.split("PROMPT:")[1].strip()
-                    
-                    iteration += 1
-                
-                # Sauvegarde auto
-                st.session_state.history.append({"name": user_input[:20]+"...", "content": current_prompt})
-                save_data(st.session_state.history)
-                
-                status_text.success("✅ Terminé !")
-                st.session_state.display_prompt = current_prompt
+                # Affichage final
+                st.balloons()
+                st.success("✅ Votre prompt a atteint le niveau 5 étoiles !")
+                st.subheader("🏆 Prompt Final Optimisé :")
+                st.code(current_prompt, language="markdown")
+                st.caption("Vous pouvez maintenant copier ce texte et l'utiliser dans n'importe quelle IA.")
 
-        # Affichage
-        if "display_prompt" in st.session_state:
-            st.subheader("🏆 Votre Prompt 5 Étoiles :")
-            st.code(st.session_state.display_prompt, language="markdown")
-                
     except Exception as e:
-        st.error(f"Détail de l'erreur : {e}")
+        st.error(f"Erreur de configuration : {e}")
 else:
-    st.warning("👈 Entrez votre clé API.")
+    st.info("👋 Bienvenue ! Veuillez configurer votre clé API dans les 'Secrets' de Streamlit pour commencer.")
