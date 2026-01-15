@@ -3,11 +3,10 @@ import google.generativeai as genai
 import json
 import os
 
-# --- 1. CONFIGURATION ÉPURÉE ---
 st.set_page_config(page_title="Prompt Master 5*", page_icon="⭐")
 st.title("🚀 Prompt Optimizer 5-Stars")
 
-# --- 2. SAUVEGARDE (Invisible) ---
+# --- SAUVEGARDE ---
 SAVE_FILE = "prompts_db.json"
 def load_data():
     if os.path.exists(SAVE_FILE):
@@ -22,7 +21,7 @@ def save_data(data):
 if "history" not in st.session_state:
     st.session_state.history = load_data()
 
-# --- 3. BARRE LATÉRALE ---
+# --- BARRE LATÉRALE ---
 st.sidebar.header("🗂️ Historique")
 for i, item in enumerate(st.session_state.history):
     col1, col2 = st.sidebar.columns([4, 1])
@@ -33,27 +32,28 @@ for i, item in enumerate(st.session_state.history):
         save_data(st.session_state.history)
         st.rerun()
 
-# --- 4. CLÉ API ---
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-else:
-    api_key = st.sidebar.text_input("Entrez votre clé API Google", type="password")
+# --- CLÉ API ---
+api_key = st.secrets.get("GEMINI_API_KEY") or st.sidebar.text_input("Clé API Google", type="password")
 
-# --- 5. MOTEUR DE GÉNÉRATION (Version Originale) ---
 if api_key:
     try:
         genai.configure(api_key=api_key)
         
+        # --- CORRECTION 404 ICI ---
+        # On essaie de trouver le nom exact accepté par Google
         @st.cache_resource
-        def get_model():
-            models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            for m in models:
-                if 'gemini-1.5-flash' in m: return m
-            return "models/gemini-1.5-flash"
+        def get_working_model_name():
+            try:
+                models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                for m in models:
+                    if 'gemini-1.5-flash' in m: return m
+                return "models/gemini-1.5-flash"
+            except:
+                return "models/gemini-1.5-flash"
 
-        model = genai.GenerativeModel(get_model())
+        model = genai.GenerativeModel(get_working_model_name())
 
-        user_input = st.text_area("Quelle est votre demande de base ?", placeholder="Ex: Aide moi à vendre un vélo")
+        user_input = st.text_area("Quelle est votre demande de base ?", placeholder="Ex: Aide moi à préparer ma défense au tribunal")
 
         if st.button("Générer le Prompt Parfait"):
             if not user_input:
@@ -65,15 +65,14 @@ if api_key:
                 iteration = 1
                 
                 while score < 5 and iteration <= 3:
-                    status_text.info(f"🔄 Itération {iteration} : Analyse et critique en cours...")
+                    status_text.info(f"🔄 Itération {iteration} : Analyse en cours...")
                     
-                    # INSTRUCTION ORIGINALE STRICTE
                     instruction = f"""
                     Tu es un expert en Prompt Engineering. 
                     Demande actuelle : {current_prompt}
                     
                     Tâche :
-                    1. Améliore ce prompt pour qu'il soit parfait.
+                    1. Améliore ce prompt pour qu'il soit parfait (Précis, expert, structuré).
                     2. Donne une note de 1 à 5.
                     
                     Format STRICT :
@@ -93,19 +92,17 @@ if api_key:
                     
                     iteration += 1
                 
-                # Sauvegarde auto
                 st.session_state.history.append({"name": user_input[:20]+"...", "content": current_prompt})
                 save_data(st.session_state.history)
                 
                 status_text.success("✅ Terminé !")
                 st.session_state.display_prompt = current_prompt
 
-        # AFFICHAGE SIMPLE
         if "display_prompt" in st.session_state:
             st.subheader("🏆 Votre Prompt 5 Étoiles :")
             st.code(st.session_state.display_prompt, language="markdown")
                 
     except Exception as e:
-        st.error(f"Détail de l'erreur : {e}")
+        st.error(f"Erreur de modèle : {e}")
 else:
     st.warning("👈 Entrez votre clé API.")
