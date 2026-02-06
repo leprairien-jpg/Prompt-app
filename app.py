@@ -1,39 +1,17 @@
 import streamlit as st
 import google.generativeai as genai
-import time
 
-# --- CONFIGURATION & DESIGN ---
-st.set_page_config(page_title="Prompt Master 5*", page_icon="⭐", layout="wide")
+# Configuration de l'interface
+st.set_page_config(page_title="Prompt Master Dual*", page_icon="⭐", layout="wide")
 
-st.markdown("""
-    <style>
-    .main { background-color: #f9f9f9; }
-    .stTextArea textarea { border-radius: 10px; border: 1px solid #ddd; }
-    .stButton button { 
-        width: 100%; border-radius: 15px; height: 3em; 
-        background: linear-gradient(90deg, #FF4B4B 0%, #FF8F8F 100%);
-        color: white; border: none; font-weight: bold;
-    }
-    .result-box { 
-        padding: 20px; border-radius: 15px; background-color: white; 
-        border: 1px solid #ff4b4b; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- HEADER ---
-st.title("🚀 Prompt Optimizer 5-Stars")
-st.caption("L'expertise technique pour transformer vos idées en prompts de production.")
+st.title("🚀 Prompt Optimizer : Dual Edition (3* & 5*)")
 st.markdown("---")
 
-# --- GESTION API (Sidebar) ---
-with st.sidebar:
-    st.header("🔑 Configuration")
-    if "GEMINI_API_KEY" in st.secrets:
-        api_key = st.secrets["GEMINI_API_KEY"]
-        st.success("Clé API chargée depuis les Secrets.")
-    else:
-        api_key = st.text_input("Entrez votre clé API Google :", type="password")
+# --- GESTION DE LA CLÉ API ---
+if "GEMINI_API_KEY" in st.secrets:
+    api_key = st.secrets["GEMINI_API_KEY"]
+else:
+    api_key = st.sidebar.text_input("🔑 Clé API Google :", type="password")
 
 if api_key:
     try:
@@ -46,82 +24,66 @@ if api_key:
                 for m in models:
                     if 'gemini-1.5-flash' in m: return m
                 return models[0] if models else "gemini-1.5-flash"
-            except:
-                return "gemini-1.5-flash"
+            except: return "gemini-1.5-flash"
 
         model_id = get_working_model()
         model = genai.GenerativeModel(model_id)
 
-        # --- LAYOUT PRINCIPAL ---
-        col_left, col_right = st.columns([1, 1], gap="large")
+        user_input = st.text_area("✍️ Votre demande de base :", height=100)
 
-        with col_left:
-            st.subheader("📝 Votre demande")
-            user_input = st.text_area(
-                "Saisissez votre base :", 
-                placeholder="Ex: Écris un script de vidéo YouTube sur les chats...",
-                height=200
-            )
-            launch_btn = st.button("✨ Générer le Prompt 5 Étoiles")
-
-        with col_right:
-            st.subheader("🏆 Résultat Optimisé")
-            if launch_btn:
-                if not user_input:
-                    st.warning("Veuillez saisir une demande.")
-                else:
-                    # --- TA LOGIQUE DE BOUCLE ORIGINALE ---
-                    current_prompt = user_input
-                    score = 0
-                    iteration = 1
-                    
-                    with st.status("🔄 Travail de l'expert en cours...", expanded=True) as status:
-                        while score < 5 and iteration <= 3:
-                            st.write(f"**Itération {iteration}/3**")
-                            
-                            instruction = f"""
-                            Tu es un expert mondial en Prompt Engineering. Ton but est de transformer une demande simple en un prompt complexe et parfait.
-                            
-                            DEMANDE ACTUELLE : {current_prompt}
-                            
-                            TACHE :
-                            1. Analyse le prompt : manque-t-il un rôle, un contexte, des étapes ou un format de sortie ?
-                            2. Réécris une version largement améliorée, ultra-précise et professionnelle.
-                            3. Attribue une note de 1 à 5 à ta nouvelle version (5 étant parfait).
-                            
-                            FORMAT DE RÉPONSE STRICT (NE RÉPONDS RIEN D'AUTRE) :
-                            NOTE: [Chiffre entre 1 et 5]
-                            PROMPT: [Ton prompt optimisé ici]
-                            """
-                            
-                            try:
-                                response = model.generate_content(instruction)
-                                output = response.text
-                                
-                                # Extraction exacte comme ton code initial
-                                if "NOTE:" in output:
-                                    score_str = output.split("NOTE:")[1].split("\n")[0].strip()
-                                    score = int(''.join(filter(str.isdigit, score_str)) or 0)
-                                
-                                if "PROMPT:" in output:
-                                    current_prompt = output.split("PROMPT:")[1].strip()
-                                
-                                st.write(f"Qualité obtenue : {score}/5")
-                                iteration += 1
-                            except Exception as e:
-                                st.error(f"Erreur : {e}")
-                                break
-                        
-                        status.update(label="✅ Optimisation terminée !", state="complete")
-
-                    # Affichage final dans le style pro
-                    st.markdown(f"**Score final : {score}/5**")
-                    st.code(current_prompt, language="markdown")
-                    st.balloons()
+        if st.button("✨ Lancer l'Optimisation Double"):
+            if not user_input:
+                st.warning("Saisissez une demande.")
             else:
-                st.info("Le prompt optimisé s'affichera ici après traitement.")
+                current_prompt = user_input
+                prompt_3_stars = ""
+                prompt_5_stars = ""
+                iteration = 1
+                
+                with st.status("🔄 Travail de l'expert en cours...", expanded=True) as status:
+                    while iteration <= 4:
+                        instruction = f"""
+                        Tu es un expert mondial en Prompt Engineering.
+                        DEMANDE : {current_prompt}
+                        TACHE : Améliore ce prompt.
+                        NOTE: Donne une note de 1 à 5.
+                        PROMPT: [Ton prompt optimisé]
+                        FORMAT STRICT : NOTE: X / PROMPT: [Texte]
+                        """
+                        response = model.generate_content(instruction)
+                        output = response.text
+                        
+                        if "NOTE:" in output:
+                            score_str = output.split("NOTE:")[1].split("\n")[0].strip()
+                            score = int(''.join(filter(str.isdigit, score_str)) or 0)
+                        if "PROMPT:" in output:
+                            current_prompt = output.split("PROMPT:")[1].strip()
+
+                        # Capture du palier 3 étoiles
+                        if score >= 3 and prompt_3_stars == "":
+                            prompt_3_stars = current_prompt
+                            st.write("✅ Palier 3 étoiles atteint.")
+                        
+                        # Capture du palier 5 étoiles (ou fin de boucle)
+                        if score >= 5 or iteration == 4:
+                            prompt_5_stars = current_prompt
+                            st.write("✅ Palier 5 étoiles atteint.")
+                            break
+                        
+                        iteration += 1
+
+                # AFFICHAGE CÔTE À CÔTE
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.subheader("🥉 Version 3 Étoiles")
+                    st.info("Équilibrée : Efficace mais reste simple.")
+                    st.code(prompt_3_stars, language="markdown")
+                
+                with col2:
+                    st.subheader("🥇 Version 5 Étoiles")
+                    st.success("Pointue : Expert, structuré et ultra-complet.")
+                    st.code(prompt_5_stars, language="markdown")
 
     except Exception as e:
-        st.error(f"Erreur de configuration : {e}")
-else:
-    st.info("👋 Veuillez configurer votre clé API dans la barre latérale pour commencer.")
+        st.error(f"Erreur : {e}")
